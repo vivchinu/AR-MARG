@@ -2,6 +2,9 @@
 
 > **100% On-Device Spatial AR Troubleshooting Guide for Underground Infrastructure & Industrial Equipment Rooms in Gujarati and English**
 
+🔗 **Live Hosted WebXR Website**: [https://vivchinu.github.io/AR-MARG/](https://vivchinu.github.io/AR-MARG/)  
+📦 **GitHub Repository**: [https://github.com/vivchinu/AR-MARG](https://github.com/vivchinu/AR-MARG)
+
 ---
 
 ## ⚡ Problem Statement & Solution
