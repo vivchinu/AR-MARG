@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#070b14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>AR-MARG | Offline WebXR Augmented Reality Maintenance Assistant</title>
+  
+  <!-- Modern Typography: Outfit, JetBrains Mono, Noto Sans Gujarati -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Gujarati:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/src/index.css">
+  <link rel="manifest" href="/manifest.json">
+</head>
+<body class="theme-dark">
+  <!-- Background Live Camera Feed for Phone AR Fallback -->
+  <video id="camera-feed" playsinline autoplay muted></video>
+
+  <!-- Main Three.js WebGL Canvas for WebXR and 3D View -->
+  <canvas id="webgl-canvas"></canvas>
+
+  <!-- AR Reticle Target Ring on Screen -->
+  <div id="ar-touch-indicator" class="ar-touch-indicator hidden">
+    <div class="ring-pulse"></div>
+    <span id="ar-prompt-text">Tap surface to place equipment</span>
+  </div>
+
+  <!-- Primary Application HUD -->
+  <div id="app-container" class="app-container">
+    
+    <!-- Top Header & Industrial Status Bar -->
+    <header class="app-header glass-panel">
+      <div class="header-branding">
+        <div class="logo-mark">
+          <svg class="icon-holo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+          <span class="pulse-dot"></span>
+        </div>
+        <div class="brand-text">
+          <div class="brand-title">
+            <span class="highlight">AR-MARG</span> <span class="tag">XR</span>
+          </div>
+          <div class="brand-sub" id="app-tagline">એઆર માર્ગ - ઑફલાઇન મશીન રિપેર સહાયક</div>
+        </div>
+      </div>
+
+      <!-- Telemetry & Offline Badges -->
+      <div class="telemetry-bar">
+        <div class="badge badge-offline" id="badge-offline" title="Runs 100% on device with zero cloud requests">
+          <span class="dot-green"></span>
+          <span class="badge-text" id="badge-offline-text">100% OFFLINE</span>
+        </div>
+        <div class="badge badge-environment" title="Optimized for underground equipment rooms & tunnels">
+          <span class="icon-subway">⚡</span>
+          <span class="badge-text">UNDERGROUND READY</span>
+        </div>
+        <div class="badge badge-xr" id="xr-device-badge">
+          <span class="icon-xr">🥽</span>
+          <span class="badge-text" id="xr-device-text">WebXR Compatible</span>
+        </div>
+      </div>
+
+      <!-- Language Switcher & Manuals Hub -->
+      <div class="header-actions">
+        <div class="lang-switch-group" id="lang-switcher">
+          <button class="lang-btn active" id="btn-lang-gu" data-lang="gu">ગુજરાતી</button>
+          <button class="lang-btn" id="btn-lang-en" data-lang="en">EN</button>
+        </div>
+
+        <button class="action-btn icon-only-btn" id="btn-open-manuals-lib" title="View Full Technical Manuals">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </button>
+
+        <button class="action-btn icon-only-btn" id="btn-custom-doc" title="Ingest Custom Document (PDF / TXT)">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Top Fault Input Console (Describe or Photograph) -->
+    <div class="fault-search-section glass-panel">
+      <div class="search-input-wrapper">
+        <div class="search-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </div>
+        <input 
+          type="text" 
+          id="fault-query-input" 
+          class="fault-search-input" 
+          placeholder="Describe fault in English or Gujarati (e.g. bearing overheat, તેલ લીક)..."
+          autocomplete="off"
+        />
+        <button id="btn-voice-input" class="search-addon-btn voice-btn" title="Speak Fault in Gujarati or English">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+          <span class="btn-caption" id="voice-btn-label">Voice</span>
+        </button>
+
+        <button id="btn-photo-fault" class="search-addon-btn photo-btn" title="Scan or Photograph Fault">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          <span class="btn-caption" id="photo-btn-label">Photo</span>
+        </button>
+
+        <button id="btn-submit-search" class="search-submit-btn">
+          <span id="search-btn-label">Diagnose</span>
+        </button>
+      </div>
+
+      <!-- Quick Preset Tag Chips -->
+      <div class="quick-chips-wrapper">
+        <span class="chips-label" id="quick-presets-title">Quick Symptoms:</span>
+        <div class="chips-list">
+          <button class="chip-btn" data-query="bearing overheat">🔥 બેરિંગ ગરમ (Bearing Overheat)</button>
+          <button class="chip-btn" data-query="mechanical seal leak">💧 સીલ લીકેજ (Seal Leak)</button>
+          <button class="chip-btn" data-query="buchholz relay trip">⚡ બુખોલ્ઝ ટ્રીપ (Buchholz Relay)</button>
+          <button class="chip-btn" data-query="silica gel pink">🌸 સિલિકા જેલ ગુલાબી (Silica Pink)</button>
+          <button class="chip-btn" data-query="bushing flashover crack">⚡ બુશિંગ તિરાડ (Bushing Flashover)</button>
+          <button class="chip-btn" data-query="chiller head pressure">❄️ ચિલર હાઇ પ્રેશર (Chiller Head P)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Workspace Area -->
+    <main class="main-workspace">
+      
+      <!-- Left / Bottom Guided Troubleshooting Card (Collapsible) -->
+      <section class="diagnostic-guide-card glass-panel" id="guide-card">
+        <div class="guide-header">
+          <div class="guide-meta">
+            <span class="step-badge" id="step-counter-badge">STEP 1 OF 4</span>
+            <span class="urgency-badge" id="fault-urgency-badge">CRITICAL</span>
+          </div>
+          <div class="guide-controls-right">
+            <!-- Voice TTS Button -->
+            <button id="btn-read-aloud" class="voice-tts-btn" title="Speak instructions in Gujarati">
+              <svg id="tts-icon-play" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              </svg>
+              <span id="tts-btn-label">ગુજરાતીમાં સાંભળો</span>
+              <div class="audio-waves hidden" id="audio-waveforms">
+                <span></span><span></span><span></span><span></span>
+              </div>
+            </button>
+            <button id="btn-toggle-drawer" class="drawer-toggle-btn" title="Collapse / Expand Details">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="guide-body" id="guide-body-content">
+          <!-- Fault & Manual Title -->
+          <div class="fault-title-box">
+            <div class="equipment-category" id="equipment-category-text">PUMP-400X // Heavy Slurry Induction Pump</div>
+            <h2 class="fault-headline" id="fault-headline-text">ડ્રાઇવ-એન્ડ બેરિંગ હાઉસિંગ અતિશય ગરમ થવું</h2>
+          </div>
+
+          <!-- Mandatory Safety Caution Banner (LOTO) -->
+          <div class="safety-alert-banner" id="safety-alert-box">
+            <div class="safety-icon-col">
+              <span class="danger-triangle">⚠️</span>
+            </div>
+            <div class="safety-text-col">
+              <div class="safety-heading" id="safety-heading-label">MANDATORY SAFETY PROTOCOL (LOTO)</div>
+              <div class="safety-desc" id="safety-warning-text">
+                ૪૧૫V MCC ફીડર સ્વીચ બંધ કરો. હેન્ડલ પર પેડલોક લગાવી 'સાવધાન: કામ ચાલુ છે' ટેગ લગાવો. કેસીંગને સ્પર્શતા પહેલા ટર્મિનલ બોક્સ પર મલ્ટિમીટર વડે શૂન્ય વોલ્ટેજ ચકાસો.
+              </div>
+            </div>
+          </div>
+
+          <!-- Step Instruction -->
+          <div class="step-detail-box">
+            <h3 class="step-title" id="step-title-text">સલામતી અલગતા અને લોકઆઉટ-ટેગઆઉટ (LOTO)</h3>
+            <p class="step-instruction" id="step-instruction-text">
+              De-energize 415V MCC feeder switch. Lock padlocks on handle and hang 'DANGER: MEN AT WORK' tag. Verify zero voltage using multimeter at terminal box before touching casing.
+            </p>
+          </div>
+
+          <!-- Virtual Tool Simulation Box -->
+          <div class="tool-simulation-widget">
+            <div class="tool-info">
+              <span class="tool-icon" id="tool-active-icon">⚡</span>
+              <div class="tool-meta">
+                <span class="tool-label" id="tool-name-label">Digital Multimeter</span>
+                <span class="tool-status" id="tool-target-spec">Target Measurement: 0.0 V AC</span>
+              </div>
+            </div>
+            <button id="btn-trigger-tool" class="tool-trigger-btn">
+              <span id="tool-btn-label">ટેસ્ટ કરો (Simulate Tool)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step Navigation Footer -->
+        <div class="guide-footer">
+          <button id="btn-prev-step" class="nav-step-btn prev-btn" disabled>
+            <span>◀</span> <span id="prev-step-label">પાછળનું પગલું</span>
+          </button>
+          <button id="btn-next-step" class="nav-step-btn next-btn">
+            <span id="next-step-label">આગળનું પગલું</span> <span>▶</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Right Floating Spatial AR Control Dock -->
+      <aside class="spatial-dock glass-panel">
+        
+        <!-- XR Session Triggers -->
+        <div class="dock-section">
+          <div class="dock-title">AUGMENTED REALITY</div>
+          <button id="btn-launch-webxr" class="xr-launch-btn quest-btn">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M2 10a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4v-4z"/>
+              <circle cx="8" cy="12" r="2"/>
+              <circle cx="16" cy="12" r="2"/>
+            </svg>
+            <div class="btn-text-block">
+              <span class="main-label" id="lbl-quest-btn">Meta Quest 3 XR</span>
+              <span class="sub-label">Passthrough 6-DoF + Spatial HUD</span>
+            </div>
+          </button>
+
+          <button id="btn-launch-camera-ar" class="xr-launch-btn phone-btn">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+              <line x1="12" y1="18" x2="12.01" y2="18"/>
+            </svg>
+            <div class="btn-text-block">
+              <span class="main-label" id="lbl-phone-btn">Phone Camera AR</span>
+              <span class="sub-label">Surface Placement & Overlay</span>
+            </div>
+          </button>
+
+          <button id="btn-exit-ar" class="xr-exit-btn hidden">
+            <span>✖</span> <span id="lbl-exit-ar">Exit AR Session</span>
+          </button>
+        </div>
+
+        <!-- Equipment Model Switcher -->
+        <div class="dock-section">
+          <div class="dock-title">EQUIPMENT MODEL</div>
+          <div class="model-switcher-tabs">
+            <button class="model-tab active" data-model="pump" title="Slurry Motor Pump">
+              <span>⚙️ PUMP-400X</span>
+            </button>
+            <button class="model-tab" data-model="transformer" title="11kV Substation Transformer">
+              <span>⚡ TX-11KV</span>
+            </button>
+            <button class="model-tab" data-model="chiller" title="Industrial HVAC Chiller">
+              <span>❄️ CHILL-800T</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3D Inspection Layer Tools -->
+        <div class="dock-section">
+          <div class="dock-title">3D INSPECTION LAYERS</div>
+          
+          <!-- Exploded View Slider -->
+          <div class="slider-control-row">
+            <div class="slider-labels">
+              <span id="lbl-exploded-slider">3D Exploded View</span>
+              <span id="exploded-val-badge" class="val-badge">0%</span>
+            </div>
+            <input type="range" id="slider-exploded" min="0" max="100" value="0" class="range-slider">
+          </div>
+
+          <!-- Layer Toggles -->
+          <div class="toggle-buttons-grid">
+            <button id="btn-toggle-thermal" class="layer-toggle-btn">
+              <span class="toggle-icon">🌡️</span>
+              <span id="lbl-thermal-toggle">Thermal Heatmap</span>
+            </button>
+            <button id="btn-toggle-xray" class="layer-toggle-btn">
+              <span class="toggle-icon">🩻</span>
+              <span id="lbl-xray-toggle">X-Ray Wireframe</span>
+            </button>
+            <button id="btn-reset-view" class="layer-toggle-btn">
+              <span class="toggle-icon">🎯</span>
+              <span id="lbl-reset-view">Center Equipment</span>
+            </button>
+          </div>
+        </div>
+
+      </aside>
+    </main>
+  </div>
+
+  <!-- MODAL 1: Photograph Fault & On-Device Vision Analyzer -->
+  <div id="modal-photo-analyzer" class="modal-backdrop hidden">
+    <div class="modal-card glass-panel">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge">📷</div>
+          <div>
+            <h3 class="modal-title" id="lbl-photo-modal-title">On-Device Visual Fault Classifier</h3>
+            <p class="modal-subtitle" id="lbl-photo-modal-desc">
+              Photograph or upload machine damage. Neural edge classification runs 100% offline.
+            </p>
+          </div>
+        </div>
+        <button id="btn-close-photo-modal" class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Image Preview / Analyzer Canvas Area -->
+        <div class="photo-preview-viewport" id="photo-viewport">
+          <canvas id="photo-canvas-display" width="360" height="300"></canvas>
+          <div id="vision-scanline" class="vision-scanline hidden"></div>
+          <div id="vision-bounding-box" class="vision-bounding-box hidden">
+            <div class="bbox-label" id="bbox-tag">OIL LEAK // 94%</div>
+          </div>
+          <div id="vision-placeholder" class="vision-placeholder">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <p>Select a sample fault image or capture from camera</p>
+          </div>
+        </div>
+
+        <!-- Sample Fault Presets to Test Instantaneously -->
+        <div class="sample-faults-bar">
+          <span class="sample-label">Test Fault Snapshots:</span>
+          <div class="sample-buttons">
+            <button class="sample-btn" data-type="bearing_hotspot">🔥 Bearing Hotspot</button>
+            <button class="sample-btn" data-type="burnt_bushing">⚡ Burnt Bushing</button>
+            <button class="sample-btn" data-type="pink_silica">🌸 Pink Silica Breather</button>
+            <button class="sample-btn" data-type="seal_leak">💧 Mechanical Seal Leak</button>
+          </div>
+        </div>
+
+        <!-- Source Action Buttons -->
+        <div class="photo-source-actions">
+          <label class="btn-file-upload">
+            <input type="file" id="photo-file-input" accept="image/*" class="hidden">
+            <span>📁 Upload Photo File</span>
+          </label>
+          <button id="btn-snap-ar-camera" class="btn-action-primary">
+            <span>📸 Snap from Live AR Camera</span>
+          </button>
+        </div>
+
+        <!-- Diagnostic Match Result Card -->
+        <div id="vision-match-result" class="vision-match-card hidden">
+          <div class="match-score-row">
+            <span class="match-type-tag" id="match-signature-type">Bearing Housing Thermal Runaway</span>
+            <span class="match-confidence" id="match-confidence-val">96% MATCH</span>
+          </div>
+          <div class="match-manual-name" id="match-manual-title">PUMP-400X // Heavy Slurry Induction Pump</div>
+          <div class="match-symptom-text" id="match-symptom-gu">ડ્રાઇવ-એન્ડ બેરિંગ અતિશય ગરમ થવું (>૮૫°C)</div>
+          <button id="btn-apply-vision-guide" class="btn-apply-guide">
+            <span id="lbl-apply-guide">Open 3D AR Guided Repair</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Full Offline Technical Manuals Library -->
+  <div id="modal-manuals-lib" class="modal-backdrop hidden">
+    <div class="modal-card modal-card-wide glass-panel">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge">📚</div>
+          <div>
+            <h3 class="modal-title">Offline Technical Manuals Library</h3>
+            <p class="modal-subtitle">Pre-indexed equipment documentation stored securely on-device.</p>
+          </div>
+        </div>
+        <button id="btn-close-manuals-lib" class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="manuals-list-container" id="manuals-list-container">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: Custom Document Ingestion (PDF / TXT) -->
+  <div id="modal-custom-doc" class="modal-backdrop hidden">
+    <div class="modal-card glass-panel">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge">📄</div>
+          <div>
+            <h3 class="modal-title" id="lbl-custom-doc-title">Load On-Device Technical Manual (PDF / TXT)</h3>
+            <p class="modal-subtitle" id="lbl-custom-doc-desc">
+              Import local underground equipment manuals. Indexed offline with 0kbps connectivity.
+            </p>
+          </div>
+        </div>
+        <button id="btn-close-custom-doc" class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="drop-zone" id="file-drop-zone">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p id="lbl-drop-prompt">Drop PDF/TXT technical manual here or tap to select file</p>
+          <input type="file" id="custom-doc-file-input" accept=".txt,.json,.pdf" class="hidden">
+        </div>
+        <div id="custom-doc-status" class="custom-doc-status hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
